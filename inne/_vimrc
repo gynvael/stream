@@ -1,0 +1,85 @@
+" Really modified configuration file for gVim...
+"
+" Original written for Debian GNU/Linux by W.Akkerman <wakkerma@debian.org>
+" Some modifications by J.H.M. Dassen <jhm@cistron.nl>
+" Possible further changes by dr Bogdan Pawlik
+" Final tailoring by Gynvael Coldwind <gynvael@coldwind.pl>
+"
+
+set nocompatible
+"set guifont=FixedSys
+"set guifont=FixedSys:cEASTEUROPE
+"set guifont=Courier\ New:cEASTEUROPE
+set guifont=Consolas:h16:cEASTEUROPE   " Windows 7 has this font
+"set guifont=Consolas:cEASTEUROPE   " Windows 7 has this font
+"set guifont=Envy_Code_R:h10:cEASTEUROPE
+set nobackup
+set ruler
+set suffixes=.bak,~,.swp,.o,.info,.aux,.log,.dvi,.bbl,.blg,.brf,.cb,.ind,.idx,.ilg,.inx,.out,.toc
+source $VIMRUNTIME/vimrc_example.vim
+source $VIMRUNTIME/mswin.vim
+"source $VIMRUNTIME/colors/morning.vim
+"source $VIMRUNTIME/colors/dawn.vim
+"source $VIMRUNTIME/colors/matrix.vim
+"source $VIMRUNTIME/colors/ironman.vim
+source $VIMRUNTIME/colors/inkpot.vim
+
+behave mswin
+set shiftwidth=2
+set showcmd		" Show (partial) command in status line.
+set showmatch		" Show matching brackets.
+set ignorecase		" Do case insensitive matching
+set incsearch		" Incremental search
+set autowrite		" Automatically save before commands like :next and :ma
+
+set fenc=utf8
+set enc=utf8
+
+inoremap <F2> <Esc>:w<CR>a
+noremap <F2> :w<CR>i 
+set tabstop=8
+set number 
+function InsertTabWrapper()
+      let col = col('.') - 1
+      if !col || getline('.')[col - 1] !~ '\k'
+          return "\<tab>"
+      else
+          return "\<c-p>"
+      endif
+endfunction
+inoremap <tab> <c-r>=InsertTabWrapper()<cr>
+autocmd BufEnter *.c setlocal expandtab 
+
+set nobackup
+set nohlsearch
+"set textwidth=70
+"source $VIMRUNTIME/keymap/polish.vim
+set expandtab 
+
+map <F6> <Esc>:setlocal spell spelllang=pl_PL<CR>
+map <F7> <Esc>:setlocal spell spelllang=en_US<CR>
+map <F8> <Esc>:setlocal nospell<CR>
+
+au BufNewFile,BufRead *.frag,*.vert,*.fp,*.vp,*.glsl setf glsl 
+
+" Highlight colors
+hi h1 guibg=#00ff00
+hi h2 guibg=#ffff00
+hi h3 guibg=#ff00ff
+hi h4 guibg=#00ffff
+
+hi ColorColumn guibg=#343461 ctermbg=darkgrey
+autocmd bufreadpre *.c set colorcolumn=81
+autocmd bufreadpre *.py set colorcolumn=81
+autocmd bufreadpre *.cc set colorcolumn=81
+autocmd bufreadpre *.cpp set colorcolumn=81
+autocmd bufreadpre *.h set colorcolumn=81
+
+autocmd bufreadpre *.c setlocal textwidth=80
+autocmd bufreadpre *.py setlocal textwidth=80
+autocmd bufreadpre *.cc setlocal textwidth=80
+autocmd bufreadpre *.cpp setlocal textwidth=80
+autocmd bufreadpre *.h setlocal textwidth=80
+
+set columns=85
+
