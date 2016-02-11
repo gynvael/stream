@@ -22,7 +22,7 @@ source $VIMRUNTIME/mswin.vim
 "source $VIMRUNTIME/colors/dawn.vim
 "source $VIMRUNTIME/colors/matrix.vim
 "source $VIMRUNTIME/colors/ironman.vim
-source $VIMRUNTIME/colors/inkpot.vim
+source $VIMRUNTIME/colors/inkpot_gc.vim
 
 behave mswin
 set shiftwidth=2
