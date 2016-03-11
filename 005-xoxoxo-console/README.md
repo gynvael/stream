@@ -6,3 +6,5 @@ Podziękowania dla wszystkich osób podsyłających uwagi, sugestie, bug reporty
 * KrzaQ, pingwindyktator - za aktywną dyskusję ad C++ i sprawdzanie pewnych rzeczy na bieżąco podczas streama
 
 Przepraszam, jeśli kogoś pominąłem - podczas streamowania niestety czasem niektóre pisane rzeczy na czacie mi umykają.
+
+![WIP screenshot](https://raw.githubusercontent.com/gynvael/stream/master/005-xoxoxo-console/screenshot.png)
