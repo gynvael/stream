@@ -28,7 +28,7 @@ class Harness():
 
         if self._game.make_move(move) is False:
           self._output.show_move_error(player)
-          break
+          continue
 
         break
 
