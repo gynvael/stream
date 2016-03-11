@@ -22,9 +22,9 @@ class Harness():
 
       while True:
         move = self._inputs[player_id].get_move()
-        if move is None:
+        if move is False:
           self._output.show_move_error(player)
-          continue 
+          continue
 
         if self._game.make_move(move) is False:
           self._output.show_move_error(player)
@@ -49,7 +49,7 @@ def main():
   inputcon1 = InputCon()
   inputcon2 = InputCon()
   outputcon = OutputCon()
-      
+
   player_inputs = [ inputcon1, inputcon2 ]
   player_output = outputcon
 
