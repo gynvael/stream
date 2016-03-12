@@ -24,7 +24,7 @@ class Harness():
 
       while True:
         move = self._inputs[player_id].get_move()
-        if move is None:
+        if move is False:
           self._output.show_move_error(player)
           continue 
 
