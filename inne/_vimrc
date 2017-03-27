@@ -82,4 +82,4 @@ autocmd bufreadpre *.cpp setlocal textwidth=80
 autocmd bufreadpre *.h setlocal textwidth=80
 
 set columns=85
-
+set belloff=all
