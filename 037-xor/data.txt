@@ -1,0 +1,23 @@
+The manual ASLR from the second point could actually be ignored (at least I didn't find it annoying in any way) and the explicit leak from third point had to be used to leak the address of libc (or, to be more accurate, leak one of the addresses of resolved functions from .got and calculate the address of libc based on that).
+
+While a link to libc was added later to the task description, I didn't notice until after I already solved the challenge, so I had to use the usual method of leaking 2-3 addresses from .got (in my case these were read, close and alarm) and look up the libc in our database of libcs (a good thing toi have). This resulted in finding exactly one library that matched all three addresses (or rather all three 12-bit lowest parts of the addresses) and giving me exactly one libc. And exactly zero ld-linux.so.2, which meant I couldn't debug the application locally, but I didn't care that much either (if possible I prefer to solve the tasks straight on the challenge server - way less problems with differences in the environment).
+
+After having the libc the rest I had to do was create a format string which would overwrite .got exit entry with the address of a ROP gadget that would pivot the stack to my buffer and thus launch a ROP chain that runs system("/bin/sh"). Done, right?
+
+Wrong.
+
+It turned out that .got was read-only.
+
+This started a 3 hour long journey to find a way to overwrite something that will give me control over EIP. The fact that immediately after printf() returned exit() was called didn't make things easier. The things I tried on the way:
+
+Destructor tables in main binary and libc - nope, read only.
+The atexit list - nope, pointer encrypted, don't know the secret value.
+stdout's function vector table - nope, read only (one thing I didn't try was to change the address of the vector table itself).
+A few function pointers that might be called on exit in libc - nope, read only.
+The return address of printf itself - nope, no idea where the stack is.
+
+Finally I recalled that libc has memory allocation hooks (__malloc_hook, __free_hook, etc) which are pointers to functions that are called when malloc or free are invoked. Luckily these pointers were not encrypted (i.e. due to the nature of how these are used/set up by the programmer - global function pointers that are to be overwritten - they cannot be encrypted).
+
+However, does printf really use malloc?
+
+At first I though about the $ positional markers - when the glibc's printf implementation encounters them, it create a copy of the argument from the stack (it needs a lookup table, and the usual vararg accessing methods don't provide such option). But it turned out it uses alloca() (i.e. on stack allocation) to do it (snippet from glibc-2.19/stdio-common/vfprintf.c):
