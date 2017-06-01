@@ -16,6 +16,7 @@ enum {
 static struct B8000_ContextStruct {
   unsigned short x;
   unsigned short y;
+  unsigned char attribute;
 } B8000_Context;
 
 static void B8000_ScrollLine(TerminalBackend *tb);
@@ -48,10 +49,19 @@ static void B8000_ClearScreen(TerminalBackend *tb) {
   unsigned char *textvram = (unsigned char*)0xB8000;
   for (int i = 0; i < 80 * 25; i++) {
     textvram[i * 2 + 0] = ' ';
-    textvram[i * 2 + 1] = 0x0A;
+    textvram[i * 2 + 1] = B8000_Context.attribute;
   }
 
   B8000_SetCursorPosition(tb, 0, 0);
+}
+
+static void B8000_SetAttribute(TerminalBackend *tb, TerminalColor bgcolor, TerminalColor fgcolor) {
+  UNUSED(tb);
+  const unsigned char attr_bg = (unsigned char)(bgcolor & 0xF) << 4;
+  const unsigned char attr_fg = (unsigned char)(fgcolor & 0xF) << 0;
+  const unsigned char attribute = attr_bg | attr_fg;
+
+  B8000_Context.attribute = attribute;
 }
 
 static void B8000_PutCharacter(TerminalBackend *tb, uint32_t ch) {
@@ -69,7 +79,7 @@ static void B8000_PutCharacter(TerminalBackend *tb, uint32_t ch) {
 
   unsigned int offset = x + y * 80;
   textvram[offset * 2 + 0] = (unsigned char)ch;
-  textvram[offset * 2 + 1] = 0x0A;
+  textvram[offset * 2 + 1] = B8000_Context.attribute;
 
   x += 1;
   if (x == 80) {
@@ -100,7 +110,7 @@ static void B8000_ScrollLine(TerminalBackend *tb) {
 
   for (size_t i = 80 * (25 - 1) * 2; i < 80 * 25 * 2; i+= 2) {
     textvram[i + 0] = ' ';
-    textvram[i + 1] = 0x0A;
+    textvram[i + 1] = B8000_Context.attribute;
   }
 
   B8000_SetCursorPosition(tb, 0, 25 - 1);
@@ -110,6 +120,7 @@ static const TerminalBackend B8000_Functions = {
   .func_set_cursor_position = B8000_SetCursorPosition,
   .func_get_cursor_position = B8000_GetCursorPosition,
   .func_clear_screen = B8000_ClearScreen,
+  .func_set_attribute = B8000_SetAttribute,
   .func_put_character = B8000_PutCharacter,
   .func_get_size = B8000_GetSize,
   .func_scroll_line = B8000_ScrollLine

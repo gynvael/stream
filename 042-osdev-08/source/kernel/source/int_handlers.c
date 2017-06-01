@@ -6,6 +6,7 @@
 
 void GuruPanicOfDeath(const char *reason, TrapFrame *frame) {
   TerminalBackend *con = TerminalBackendB8000();
+  T_SetAttribute(con, TerminalColor_Blue, TerminalColor_LightWhite);
   T_ClearScreen(con);
   T_PutText(con, "Guru Panic Of Death!!!\n\n");
   T_Printf(con, "Reason: %s\n\n", reason);

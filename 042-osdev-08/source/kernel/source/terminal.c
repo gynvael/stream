@@ -58,6 +58,10 @@ void T_ClearScreen(TerminalBackend *tb) {
   tb->func_clear_screen(tb);
 }
 
+void T_SetAttribute(TerminalBackend *tb, TerminalColor bgcolor, TerminalColor fgcolor) {
+  tb->func_set_attribute(tb, bgcolor, fgcolor);
+}
+
 void T_PutCharacter(TerminalBackend *tb, uint32_t ch) {
   tb->func_put_character(tb, ch);
 }
