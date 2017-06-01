@@ -6,19 +6,20 @@ project.path		= kernel
 project.component.major	= boot
 project.component.minor	= kernel
 project.emit-metadata	= true
-project.configuration	= debug
+project.configuration	= release
 
 project.sources		= \
 	$(wildcard source/*.S) \
 	$(wildcard source/*.c)
 
-project.flags.cc	= -ffreestanding -nostdlib -nostartfiles -masm=intel 
-project.flags.as	= -ffreestanding -nostdlib -nostartfiles -masm=intel 
-project.flags.cxx	= -ffreestanding -nostdlib -nostartfiles -masm=intel 
+project.flags.cc	= -ffreestanding -nostdlib -nostartfiles -masm=intel -mno-sse2 -mno-sse -mno-sse3 -mno-ssse3 -mno-sse4
+project.flags.as	= -ffreestanding -nostdlib -nostartfiles -masm=intel -mno-sse2 -mno-sse -mno-sse3 -mno-ssse3 -mno-sse4
+project.flags.cxx	= -ffreestanding -nostdlib -nostartfiles -masm=intel -mno-sse2 -mno-sse -mno-sse3 -mno-ssse3 -mno-sse4
 
 project.flags.link = \
 	-ffreestanding \
 	-nostdlib \
+	-Tsource/linker.lds \
 	-Wl,-z,max-page-size=0x1000 \
 	-Wl,-z,common-page-size=0x1000
 

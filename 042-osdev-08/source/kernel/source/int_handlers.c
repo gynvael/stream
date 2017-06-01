@@ -1,6 +1,7 @@
 #include "common.h"
 #include "terminal.h"
 #include "terminal_backend_b8000.h"
+#include "hal.h"
 #include <int_handlers.h>
 
 void GuruPanicOfDeath(const char *reason, TrapFrame *frame) {
@@ -26,7 +27,7 @@ void GuruPanicOfDeath(const char *reason, TrapFrame *frame) {
 
   T_PutText(con, "System halt.");
 
-  for (;;);
+  HAL_PauseKernel();
 }
 
 
