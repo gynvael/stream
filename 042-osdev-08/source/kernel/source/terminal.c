@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include "common.h"
 #include "terminal.h"
+#include "hal.h"
 
 void T_SetCursorPosition(
     TerminalBackend *tb, uint16_t x, uint16_t y) {
@@ -138,62 +139,36 @@ void T_PrintHex(TerminalBackend *tb, size_t n, int width) {
   }
 }
 
+extern int
+rtl_string_format_v(
+    char* buffer,
+    size_t buffer_length,
+    size_t* processed,
+    const char* format,
+    va_list arglist
+);
+
 void T_Printf(TerminalBackend *tb, const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  
-  const char *p = fmt;
 
-  while (*p != '\0') {
-    if (*p != '%') {
-      T_PrintChar(tb, *p);
-      p++;
-      continue;
-    }
+  char buffer[512];
 
-    p++;
+  size_t processed = 0;
+  int result_code = rtl_string_format_v(buffer, sizeof(buffer), &processed, fmt, args);
 
-    switch(*p) {
-      case 'p':
-        T_PrintHex(tb, va_arg(args, size_t), 16);
-        p++;
-        continue;
-
-      case 'c':
-        T_PrintChar(tb, va_arg(args, int));
-        p++;
-        continue;
-
-      case 'i':
-      case 'd':
-        T_PrintInt(tb, va_arg(args, int));
-        p++;
-        continue;
-
-      case 'u':
-        T_PrintUInt(tb, va_arg(args, size_t));
-        p++;
-        continue;
-
-      case 'x':
-        T_PrintHex(tb, va_arg(args, size_t), 0);
-        p++;
-        continue;
-
-      case 's':
-        T_PutText(tb, va_arg(args, const char*));
-        p++;
-        continue;
-
-      case '%':
-        T_PrintChar(tb, *p);
-        p++;
-        continue;
-
-      default:
-        break;
-    }
+  if (result_code == 0 && processed != 0)
+  {
+    T_PutText(tb, buffer);
   }
+  else
+  {
+    T_PutText(tb, "Internal Terminal Error\n");
+    HAL_PauseKernel();
+  }
+
+  (void)result_code;
+  (void)processed;
 
   va_end(args);
 }
