@@ -2,11 +2,12 @@
 
 - added mode changing to 80x50
 - added terminal backend character attribute changing API
+- added string formatting API (sorry, no floats)
 - reworked source files to use makefile based build system
 
 # Building
 
-Now everything is enclosed in single
+Now building and cleaning everything is as simple as
 
 ```bash
 make clean && make build
