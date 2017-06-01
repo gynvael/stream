@@ -19,6 +19,11 @@ make clean && make build
 In this configuration it uses qemu instead of bochs (which I find kinda slow anyway...). Adding bochs support is relative easy anyway.
 
 
+## Panic Contest
+
+[![Image](http://i.imgur.com/qDneBv1.png)](http://i.imgur.com/qDneBv1.png "Preview")
+
+
 ## Author
 
 Karol Grzybowski (2017)
