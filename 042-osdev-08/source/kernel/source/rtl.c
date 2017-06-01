@@ -1,3 +1,9 @@
+//--------------------------------------------------------------------------------------------------
+//
+//	By Karol Grzybowski, 2017
+//
+//--------------------------------------------------------------------------------------------------
+
 #include "common.h"
 #include <stdint.h>
 #include <stdarg.h>
@@ -122,7 +128,7 @@ struct format_state {
 
 // Disable call to stdlib function (don't remember which one :D)
 __attribute__((__optimize__("-fno-tree-loop-distribute-patterns")))
-int
+static int
 rtl_string_to_int32(
     int32_t* result,
     const char* string,

@@ -16,15 +16,23 @@ enum {
 static struct B8000_ContextStruct {
   unsigned short x;
   unsigned short y;
+  unsigned short width;
+  unsigned short height;
   unsigned char attribute;
-} B8000_Context;
+} B8000_Context = {
+  .x = 0,
+  .y = 0,
+  .width = 80,
+  .height = 50,
+  .attribute = 0x1F
+};
 
 static void B8000_ScrollLine(TerminalBackend *tb);
 
 static void B8000_SetCursorPosition(
     TerminalBackend *tb, uint16_t x, uint16_t y) {
   UNUSED(tb);
-  unsigned int offset = y * 80 + x;
+  unsigned int offset = y * B8000_Context.width + x;
 
   // ASSERT(offset <= 0xffff);
   // ASSERT(offset <= 80 * 25) <--- w * h konsoli
@@ -47,7 +55,7 @@ static void B8000_SetCursorPosition(
 static void B8000_ClearScreen(TerminalBackend *tb) {
   UNUSED(tb);
   unsigned char *textvram = (unsigned char*)0xB8000;
-  for (int i = 0; i < 80 * 25; i++) {
+  for (int i = 0; i < B8000_Context.width * B8000_Context.height; i++) {
     textvram[i * 2 + 0] = ' ';
     textvram[i * 2 + 1] = B8000_Context.attribute;
   }
@@ -71,18 +79,18 @@ static void B8000_PutCharacter(TerminalBackend *tb, uint32_t ch) {
   unsigned short x = B8000_Context.x;
   unsigned short y = B8000_Context.y;
 
-  if (y == 25) {
+  if (y == B8000_Context.height) {
     B8000_ScrollLine(tb);
     x = B8000_Context.x;
     y = B8000_Context.y;
   }
 
-  unsigned int offset = x + y * 80;
+  unsigned int offset = x + y * B8000_Context.width;
   textvram[offset * 2 + 0] = (unsigned char)ch;
   textvram[offset * 2 + 1] = B8000_Context.attribute;
 
   x += 1;
-  if (x == 80) {
+  if (x == B8000_Context.width) {
     x = 0;
     y += 1;   
   }
@@ -100,20 +108,20 @@ static void B8000_GetCursorPosition(
 static void B8000_GetSize(TerminalBackend *tb,
     uint16_t *w, uint16_t *h) {
   UNUSED(tb);
-  *w = 80;
-  *h = 25;
+  *w = B8000_Context.width;
+  *h = B8000_Context.height;
 }
 
 static void B8000_ScrollLine(TerminalBackend *tb) {
   unsigned char *textvram = (unsigned char*)0xB8000;  
-  memmove(textvram, textvram + 80 * 2, 80 * (25 - 1) * 2);
+  memmove(textvram, textvram + B8000_Context.width * 2, B8000_Context.width * (B8000_Context.height - 1) * 2);
 
-  for (size_t i = 80 * (25 - 1) * 2; i < 80 * 25 * 2; i+= 2) {
+  for (size_t i = B8000_Context.width * (B8000_Context.height - 1) * 2; i < B8000_Context.width * B8000_Context.height * 2; i+= 2) {
     textvram[i + 0] = ' ';
     textvram[i + 1] = B8000_Context.attribute;
   }
 
-  B8000_SetCursorPosition(tb, 0, 25 - 1);
+  B8000_SetCursorPosition(tb, 0, B8000_Context.height - 1);
 }
 
 static const TerminalBackend B8000_Functions = {
