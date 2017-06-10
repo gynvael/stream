@@ -1,7 +1,6 @@
 #include "common.h"
 #include "terminal.h"
 #include "terminal_backend_b8000.h"
-#include "vga.h"
 
 // Thanks to Karol Grzybowski
 typedef struct TrapFrame
@@ -55,14 +54,6 @@ void GuruPanicOfDeath(const char *reason, TrapFrame *frame)
 
   T_PutText(con, "System halt.");
 
-  char str[] = "9234567890123456789012345678901234567890";
-
-  clearscreen();
-  for(int x = 0; x < sizeof(str) / sizeof(char) - 1; x++)
-  {
-      setpixel(x,x,5);
-      drawfgchar(str[x], x, 5, 1);
-  }
 
   for (;;)
     ;
