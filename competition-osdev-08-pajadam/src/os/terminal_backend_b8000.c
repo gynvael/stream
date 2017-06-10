@@ -20,9 +20,15 @@ static struct B8000_ContextStruct
 {
   unsigned short x;
   unsigned short y;
+  unsigned char color;
 } B8000_Context;
 
 static void B8000_ScrollLine(TerminalBackend *tb);
+
+static void B8000_SetColor(TerminalBackend *tb, unsigned char color)
+{
+  B8000_Context.color = color;
+}
 
 static void B8000_SetCursorPosition(
     TerminalBackend *tb, uint16_t x, uint16_t y)
@@ -47,6 +53,7 @@ static void B8000_PutCharacter(TerminalBackend *tb, uint32_t ch)
 
   unsigned short x = B8000_Context.x;
   unsigned short y = B8000_Context.y;
+  unsigned char color = B8000_Context.color;
 
   if (y == 25)
   {
@@ -55,7 +62,7 @@ static void B8000_PutCharacter(TerminalBackend *tb, uint32_t ch)
     y = B8000_Context.y;
   }
 
-  drawfgchar(ch, x, y, 0x0A);
+  drawfgchar(ch, x, y, color);
 
   x += 1;
   if (x == 40)
@@ -102,7 +109,8 @@ static const TerminalBackend B8000_Functions = {
     .func_clear_screen = B8000_ClearScreen,
     .func_put_character = B8000_PutCharacter,
     .func_get_size = B8000_GetSize,
-    .func_scroll_line = B8000_ScrollLine};
+    .func_scroll_line = B8000_ScrollLine,
+    .func_set_color = B8000_SetColor};
 
 TerminalBackend *TerminalBackendB8000(void)
 {

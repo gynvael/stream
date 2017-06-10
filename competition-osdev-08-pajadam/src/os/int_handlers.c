@@ -37,24 +37,56 @@ void GuruPanicOfDeath(const char *reason, TrapFrame *frame)
 {
   TerminalBackend *con = TerminalBackendB8000();
   T_ClearScreen(con);
-  T_PutText(con, "Guru Panic Of Death!!!\n\n");
-  T_Printf(con, "Reason: %s\n\n", reason);
-  T_PutText(con, "State:\n\n");
 
-  T_Printf(con, "RAX: %x\t\t R8: %x\n", frame->rax, frame->r8);
-  T_Printf(con, "RBX: %x\t\t R9: %x\n", frame->rbx, frame->r9);
-  T_Printf(con, "RCX: %x\t\t R10: %x\n", frame->rcx, frame->r10);
-  T_Printf(con, "RDX: %x\t\t R11: %x\n", frame->rdx, frame->r11);
-  T_Printf(con, "RSI: %x\t\t R12: %x\n", frame->rsi, frame->r12);
-  T_Printf(con, "RDI: %x\t\t R13: %x\n", frame->rdi, frame->r13);
-  T_Printf(con, "RBP: %x\t\t R14: %x\n", frame->rbp, frame->r14);
-  T_Printf(con, "RSP: %x\t\t R15: %x\n", frame->rsp, frame->r15);
+  for(int y = 0; y < 200; y++)
+  {
+    for(int x = 0; x < 320; x++)
+    {
+      setpixel(x, y, ((x + 1) / (y + 1)) % 140 + 110);
+    }
+  }
 
-  T_Printf(con, "CS:RIP: %x:%x\n\n", frame->segment_cs, frame->rip);
+  T_SetColor(con, 15);
 
-  T_PutText(con, "System halt.");
+  T_PutText(con, "\n Opsy!");
+  T_SetColor(con, 80);
+  T_PutText(con, "\t\t\t\t  GynOS\n\n");
+  T_SetColor(con, 28);
+  T_PutText(con, " Something went wrong!\n\n\n");
 
+  T_SetColor(con, 90);
+  T_PutText(con, " State:\n\n");
 
+  T_SetColor(con, 67);
+  T_Printf(con, "  RAX: %x\t\t R8: %x\n", frame->rax, frame->r8);
+  T_SetColor(con, 66);
+  T_Printf(con, "  RBX: %x\t\t R9: %x\n", frame->rbx, frame->r9);
+  T_SetColor(con, 67);
+  T_Printf(con, "  RCX: %x\t\t R10: %x\n", frame->rcx, frame->r10);
+  T_SetColor(con, 66);
+  T_Printf(con, "  RDX: %x\t\t R11: %x\n", frame->rdx, frame->r11);
+  T_SetColor(con, 67);
+  T_Printf(con, "  RSI: %x\t\t R12: %x\n", frame->rsi, frame->r12);
+  T_SetColor(con, 66);
+  T_Printf(con, "  RDI: %x\t\t R13: %x\n", frame->rdi, frame->r13);
+  T_SetColor(con, 67);
+  T_Printf(con, "  RBP: %x\t\t R14: %x\n", frame->rbp, frame->r14);
+  T_SetColor(con, 66);
+  T_Printf(con, "  RSP: %x\t\t R15: %x\n", frame->rsp, frame->r15);
+
+  T_SetColor(con, 64);
+  T_PutText(con, "\n CS:RIP: ");
+  T_SetColor(con, 65);
+  T_Printf(con, "%x:%x\n\n", frame->segment_cs, frame->rip);
+
+  T_SetColor(con, 42);
+  T_PutText(con, "\n\n Reason: ");
+  T_SetColor(con, 43);
+  T_Printf(con, "%s\n\n", reason);
+
+  // TO BE REMOVED
+  T_SetColor(con, 51);
+  T_PutText(con, "\t\t\t     by pajadam");
   for (;;)
     ;
 }
