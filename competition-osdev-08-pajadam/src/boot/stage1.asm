@@ -20,13 +20,13 @@ start:
   ; DL == already set by BIOS
   ; AX -- 16 bits, AH AL -- 8 bits
   ; EAX -- AX
-  
+
   mov ax, 0x2000 ; 0x2000:0x0000
   mov es, ax
   xor bx, bx ; bx == 0
 
   mov ah, 2  ; read sectors into memory
-  mov al, 0xcc  ; 1337 stage2  3 * 512 
+  mov al, 0xcc  ; 1337 stage2  3 * 512
   nop
   nop
   mov ch, 0
@@ -34,7 +34,7 @@ start:
   mov dh, 0
 
   int 13h
-  
+
   ; Jump to stage 2
   jmp word 0x2000:0x0000
 

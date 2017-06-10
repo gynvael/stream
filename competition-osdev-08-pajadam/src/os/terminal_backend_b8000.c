@@ -85,7 +85,7 @@ static void B8000_GetSize(TerminalBackend *tb,
 
 static void B8000_ScrollLine(TerminalBackend *tb)
 {
-  unsigned char *mvram = (unsigned char *)0xA0000;;
+  unsigned char *mvram = (unsigned char *)0xA0000;
   memmove(mvram, mvram + 320 * 8, 320 * (200 - 1));
 
   for(int x = 0; x < 40; x++)
