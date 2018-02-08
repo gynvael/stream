@@ -1,0 +1,8 @@
+I really hope you like BMP file format and general bitmap stegano. Since we all hate guessing: levels 0 and 1 are image stegano, and level 2+ are file format stegano.
+
+To decrypt a level (once you get the password) use OpenSSL:
+openssl enc -d -aes-256-cbc -in levelN.bmp.enc -out levelN.bmp
+
+IMPORTANT: File level3.bmp.enc was updated ad 7:20PM Day 1 - please re-download in case level2 password doesn't work for level3. Sorry!
+
+[Download]({{resource("mapofbits.zip")}})

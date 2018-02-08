@@ -1,0 +1,7 @@
+Did you like the previous BMP levels? Good news - there is more where they came from! Note: all levels are file format stegano.
+
+To decrypt a level (once you get the password) use OpenSSL:
+openssl enc -d -aes-256-cbc -in levelN.bmp.enc -out levelN.bmp
+
+[Download]({{resource("revengeofbits.zip")}}) 
+
