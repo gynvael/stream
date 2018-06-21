@@ -1,0 +1,15 @@
+const char html_header[ ] = 
+"<HTML>\n"
+"<HEAD>\n"
+"  <STYLE>\n"
+"   CODE { font-family: Monospace; font-size: 12px; }\n"
+"   CODE.n { color: black; }\n"
+"   CODE.k { color: blue; font-weight: bold; }\n"
+"   CODE.no { color: blue; }\n"
+"   CODE.c { color: #28A828; }\n"
+"   CODE.s { color: #B60CE1; }\n"
+"   CODE.p { color: blue; }\n"
+"   CODE.sy { color: #3060FF; }\n"
+"  </STYLE>\n"
+"</HEAD>\n"
+"<BODY>\n";

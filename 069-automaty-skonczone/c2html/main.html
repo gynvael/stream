@@ -1,0 +1,680 @@
+<HTML>
+<HEAD>
+  <STYLE>
+   CODE { font-family: Monospace; font-size: 12px; }
+   CODE.n { color: black; }
+   CODE.k { color: blue; font-weight: bold; }
+   CODE.no { color: blue; }
+   CODE.c { color: #28A828; }
+   CODE.s { color: #B60CE1; }
+   CODE.p { color: blue; }
+   CODE.sy { color: #3060FF; }
+  </STYLE>
+</HEAD>
+<BODY>
+<code class="c">/* c2html<br/>
+&nbsp;* Ver. &nbsp; : 0.0.5<br/>
+&nbsp;* Author : gynvael.coldwind//vx<br/>
+&nbsp;* Date &nbsp; : 02.03.2003<br/>
+&nbsp;* Desc. &nbsp;: converts a c file into a html document with colored syntax<br/>
+&nbsp;*/<br/>
+<br/>
+/* TODO list:<br/>
+&nbsp;- change the argument -parsing- stuff<br/>
+&nbsp;- add tag-type option<br/>
+&nbsp;- stdin and stdout support<br/>
+&nbsp;*/<br/>
+</code><code class="p">#include&lt;stdio.h&gt;<br/>
+#include&lt;string.h&gt;<br/>
+#include&lt;stdlib.h&gt;<br/>
+#include"keywords.h"<br/>
+#include"header.h"<br/>
+#include"footer.h"<br/>
+<br/>
+</code><code class="c">/* <br/>
+&nbsp;* defines<br/>
+&nbsp;*/<br/>
+</code><code class="p">#define MAXPATH 256<br/>
+#ifdef EXPERIMENTAL<br/>
+&nbsp; #define VERSION "0.0.5-x"<br/>
+#else<br/>
+&nbsp; #define VERSION "0.0.5"<br/>
+#endif<br/>
+<br/>
+</code><code class="c">/*<br/>
+&nbsp;* enums<br/>
+&nbsp;*/<br/>
+&nbsp;<br/>
+/* styles */<br/>
+</code><code class="k">enum<br/>
+</code><code class="sy">{<br/>
+&nbsp; </code><code class="n">STYLE_NORMAL</code><code class="sy">, &nbsp; </code><code class="c">/* function names, variable names, etc &nbsp;*/<br/>
+&nbsp; </code><code class="n">STYLE_KEYWORD</code><code class="sy">, &nbsp;</code><code class="c">/* special names like "if" "int", etc &nbsp; */<br/>
+&nbsp; </code><code class="n">STYLE_NUMBER</code><code class="sy">, &nbsp; </code><code class="c">/* digits (oct/dec/hex) &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="n">STYLE_COMMENTS</code><code class="sy">, </code><code class="c">/* c-style and cpp-style comments &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="n">STYLE_STRING</code><code class="sy">, &nbsp; </code><code class="c">/* "strings" and 'strings' &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="n">STYLE_PREPROC</code><code class="sy">, &nbsp;</code><code class="c">/* #preprocessor stuff &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="n">STYLE_SYMBOL</code><code class="sy">, &nbsp; </code><code class="c">/* !@#$%^&amp;*()-={}[];' etc &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="n">STYLE_END &nbsp; &nbsp; &nbsp; </code><code class="c">/* end of previous style, virtual style */<br/>
+</code><code class="sy">};<br/>
+<br/>
+</code><code class="c">/* states for color_text func */<br/>
+</code><code class="k">enum<br/>
+</code><code class="sy">{<br/>
+&nbsp; </code><code class="n">ST_SWITCH &nbsp; &nbsp; &nbsp;</code><code class="sy">= </code><code class="no">0</code><code class="sy">, </code><code class="c">/* decides what state is next, handles sp \n \r \t */<br/>
+&nbsp; </code><code class="n">ST_PREPROC &nbsp; &nbsp; </code><code class="sy">= </code><code class="no">1</code><code class="sy">, </code><code class="c">/* handles preprocessor line &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="n">ST_STRING &nbsp; &nbsp; &nbsp;</code><code class="sy">= </code><code class="no">2</code><code class="sy">, </code><code class="c">/* handles quotas and double quotas &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="n">ST_COMMENTSC &nbsp; </code><code class="sy">= </code><code class="no">3</code><code class="sy">, </code><code class="c">/* handles c-style comments &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="n">ST_COMMENTSCPP </code><code class="sy">= </code><code class="no">4</code><code class="sy">, </code><code class="c">/* handles cpp-style comments &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="n">ST_KEYWORD &nbsp; &nbsp; </code><code class="sy">= </code><code class="no">5</code><code class="sy">, </code><code class="c">/* handles keywords or switches to ST_NORMAL &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="n">ST_NORMAL &nbsp; &nbsp; &nbsp;</code><code class="sy">= </code><code class="no">6</code><code class="sy">, </code><code class="c">/* handles normal alphanumeric strings &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="n">ST_SYMBOL &nbsp; &nbsp; &nbsp;</code><code class="sy">= </code><code class="no">7</code><code class="sy">, </code><code class="c">/* handles non-alphanumeric non-control chars &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="n">ST_NUMBER &nbsp; &nbsp; &nbsp;</code><code class="sy">= </code><code class="no">8 &nbsp;</code><code class="c">/* handles numbers in oct/dec/hex format &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; */<br/>
+</code><code class="sy">};<br/>
+<br/>
+</code><code class="c">/*<br/>
+&nbsp;* structs<br/>
+&nbsp;*/<br/>
+</code><code class="k">typedef struct </code><code class="n">st_tags<br/>
+</code><code class="sy">{<br/>
+&nbsp; </code><code class="k">const char </code><code class="sy">*</code><code class="n">tag</code><code class="sy">;<br/>
+&nbsp; </code><code class="k">int </code><code class="n">size</code><code class="sy">;<br/>
+} </code><code class="n">t_tags</code><code class="sy">;<br/>
+<br/>
+</code><code class="c">/*<br/>
+&nbsp;* global predefined structs<br/>
+&nbsp;*/<br/>
+&nbsp;<br/>
+/* &lt;code&gt; tag struct */<br/>
+</code><code class="n">t_tags code_tags</code><code class="sy">[ ] = <br/>
+{<br/>
+&nbsp; { </code><code class="s">"&lt;code class=\"n\"&gt;"</code><code class="sy">, &nbsp;</code><code class="no">16 </code><code class="sy">}, </code><code class="c">/* normal &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;code class=\"k\"&gt;"</code><code class="sy">, &nbsp;</code><code class="no">16 </code><code class="sy">}, </code><code class="c">/* keyword &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;code class=\"no\"&gt;"</code><code class="sy">, </code><code class="no">17 </code><code class="sy">}, </code><code class="c">/* number &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;code class=\"c\"&gt;"</code><code class="sy">, &nbsp;</code><code class="no">16 </code><code class="sy">}, </code><code class="c">/* comments &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;code class=\"s\"&gt;"</code><code class="sy">, &nbsp;</code><code class="no">16 </code><code class="sy">}, </code><code class="c">/* string &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;code class=\"p\"&gt;"</code><code class="sy">, &nbsp;</code><code class="no">16 </code><code class="sy">}, </code><code class="c">/* preprocesor &nbsp;*/<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;code class=\"sy\"&gt;"</code><code class="sy">, </code><code class="no">17 </code><code class="sy">}, </code><code class="c">/* symbol &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;/code&gt;"</code><code class="sy">, &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</code><code class="no">7 </code><code class="sy">}, </code><code class="c">/* end of style */<br/>
+</code><code class="sy">};<br/>
+<br/>
+</code><code class="p">#ifdef EXPERIMENTAL<br/>
+</code><code class="c">/* &lt;pre&gt; tag struct */<br/>
+</code><code class="n">t_tags pre_tags</code><code class="sy">[ ] = <br/>
+{<br/>
+&nbsp; { </code><code class="s">"&lt;pre class=\"n\"&gt;"</code><code class="sy">, &nbsp; </code><code class="no">15 </code><code class="sy">}, </code><code class="c">/* normal &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;pre class=\"k\"&gt;"</code><code class="sy">, &nbsp; </code><code class="no">15 </code><code class="sy">}, </code><code class="c">/* keyword &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;pre class=\"no\"&gt;"</code><code class="sy">, &nbsp;</code><code class="no">16 </code><code class="sy">}, </code><code class="c">/* number &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;pre class=\"c\"&gt;"</code><code class="sy">, &nbsp; </code><code class="no">15 </code><code class="sy">}, </code><code class="c">/* comments &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;pre class=\"s\"&gt;"</code><code class="sy">, &nbsp; </code><code class="no">15 </code><code class="sy">}, </code><code class="c">/* string &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;pre class=\"p\"&gt;"</code><code class="sy">, &nbsp; </code><code class="no">15 </code><code class="sy">}, </code><code class="c">/* preprocesor &nbsp;*/<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;pre class=\"sy\"&gt;"</code><code class="sy">, &nbsp;</code><code class="no">16 </code><code class="sy">}, </code><code class="c">/* symbol &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="sy">{ </code><code class="s">"&lt;/pre&gt;"</code><code class="sy">, &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="no">6 </code><code class="sy">} &nbsp;</code><code class="c">/* end of style */<br/>
+</code><code class="sy">};<br/>
+</code><code class="p">#else<br/>
+&nbsp;#define pre_tags (void*)0<br/>
+#endif<br/>
+<br/>
+</code><code class="c">/*<br/>
+&nbsp;* globals<br/>
+&nbsp;*/<br/>
+&nbsp;<br/>
+/* tag struct pointer */<br/>
+</code><code class="n">t_tags </code><code class="sy">*</code><code class="n">tags </code><code class="sy">= </code><code class="n">code_tags</code><code class="sy">; </code><code class="c">/* &lt;code&gt; is default */<br/>
+<br/>
+/*<br/>
+&nbsp;* functions<br/>
+&nbsp;*/<br/>
+<br/>
+/* color_text( )<br/>
+&nbsp;* sets up styles for the text (c/cpp syntax)<br/>
+&nbsp;* arguments: char *text - pointer to buffer with text to set styles to<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;char *style - pointer to buffer to write styles to<br/>
+&nbsp;* returns: 0<br/>
+&nbsp;*/<br/>
+</code><code class="k">int<br/>
+</code><code class="n">color_text</code><code class="sy">( </code><code class="k">char </code><code class="sy">*</code><code class="n">text</code><code class="sy">, </code><code class="k">char </code><code class="sy">*</code><code class="n">style </code><code class="sy">)<br/>
+{<br/>
+&nbsp; </code><code class="k">int </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">; &nbsp; &nbsp; &nbsp; &nbsp;</code><code class="c">/* current state &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="k">int </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_NORMAL</code><code class="sy">; </code><code class="c">/* old style (for sp &amp; \n &amp; \t opt.) */<br/>
+&nbsp; </code><code class="k">char </code><code class="n">temp</code><code class="sy">, </code><code class="n">tmp</code><code class="sy">; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* some temp vars used in states &nbsp; &nbsp; */<br/>
+&nbsp; </code><code class="k">char </code><code class="n">kbuf</code><code class="sy">[ </code><code class="no">16 </code><code class="sy">], *</code><code class="n">pnow</code><code class="sy">; &nbsp; &nbsp; &nbsp; </code><code class="c">/* keywords temp buffer &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; </code><code class="k">int </code><code class="n">res</code><code class="sy">, </code><code class="n">lkey</code><code class="sy">, </code><code class="n">rkey</code><code class="sy">, </code><code class="n">pos</code><code class="sy">; &nbsp; &nbsp; </code><code class="c">/* keywords binsearch vars &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; */<br/>
+&nbsp; <br/>
+&nbsp; /* while there still is some text */<br/>
+&nbsp; </code><code class="n">while</code><code class="sy">( *</code><code class="n">text </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="c">/* go to the proper state */<br/>
+&nbsp; &nbsp; </code><code class="k">switch</code><code class="sy">( </code><code class="n">state </code><code class="sy">)<br/>
+&nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_SWITCH <br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* desc : switches to the proper state and handles \r \n \t and sp<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_SWITCH</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'#' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_PREPROC</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'/' </code><code class="sy">&amp;&amp; *(</code><code class="n">text</code><code class="sy">+</code><code class="no">1</code><code class="sy">) == </code><code class="s">'*' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_COMMENTSC</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'/' </code><code class="sy">&amp;&amp; *(</code><code class="n">text</code><code class="sy">+</code><code class="no">1</code><code class="sy">) == </code><code class="s">'/' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_COMMENTSCPP</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'\"' </code><code class="sy">|| *</code><code class="n">text </code><code class="sy">== </code><code class="s">'\'' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_STRING</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'0' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'9' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_NUMBER</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'A' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'Z' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_KEYWORD</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'a' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'z' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_KEYWORD</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'_' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_KEYWORD</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">!= </code><code class="s">'\r' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">!= </code><code class="s">'\n' </code><code class="sy">&amp;&amp;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;*</code><code class="n">text </code><code class="sy">!= </code><code class="s">'\t' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">!= </code><code class="s">' ' </code><code class="sy">) { </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SYMBOL</code><code class="sy">; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="sy">{<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* handle \r \n \t and sp using old_style */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">old_style</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_PREPROC<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* desc : handles preprocessors lines (from # to eoln)<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_PREPROC</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_PREPROC</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">while</code><code class="sy">( *</code><code class="n">text </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">!= </code><code class="s">'\n' </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* set it's style */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_PREPROC</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_STRING <br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* &nbsp;desc: handles strings (from " to " and from ' to ')<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_STRING</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_STRING</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">temp </code><code class="sy">= *</code><code class="n">text</code><code class="sy">; </code><code class="c">/* remember the char that started the string (' ") */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">tmp </code><code class="sy">= </code><code class="no">1</code><code class="sy">; </code><code class="c">/* if 0, the last char was a backslash */<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; /* the first char is a string for sure, get rid of it */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_STRING</code><code class="sy">; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* while we don't hit the char that started this state<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* or it's a not-important char (backslash in front) */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">while</code><code class="sy">( *</code><code class="n">text </code><code class="sy">&amp;&amp; (!( *</code><code class="n">text </code><code class="sy">== </code><code class="n">temp </code><code class="sy">&amp;&amp; </code><code class="n">tmp </code><code class="sy">)) )<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* check if we have a backslash or not */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'\\' </code><code class="sy">&amp;&amp; </code><code class="n">tmp </code><code class="sy">) </code><code class="n">tmp </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="k">else </code><code class="n">tmp </code><code class="sy">= </code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* set the tyle */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_STRING</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* set the style to the closing (double) quote */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; *</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_STRING</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_COMMENTSC<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* desc : handles c-style comments ( from (slash)* to *(slash) )<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_COMMENTSC</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_COMMENTS</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">tmp </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="c">/* end of comment flag */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">temp </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="c">/* last-char-was-a-asterisk flag */<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; /* the first two chars are comments for sure, get rid of them */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_COMMENTS</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; *(</code><code class="n">style</code><code class="sy">+</code><code class="no">1</code><code class="sy">) = </code><code class="n">STYLE_COMMENTS</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">+=</code><code class="no">2</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">+=</code><code class="no">2</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* while we still have text and we didn't hit the end of comment */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">while</code><code class="sy">( *</code><code class="n">text </code><code class="sy">&amp;&amp; !</code><code class="n">tmp </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* check for end of comment marker */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'/' </code><code class="sy">&amp;&amp; </code><code class="n">temp </code><code class="sy">) </code><code class="n">tmp </code><code class="sy">= </code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* check for a asterisk */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'*' </code><code class="sy">) </code><code class="n">temp </code><code class="sy">= </code><code class="no">1</code><code class="sy">; </code><code class="k">else </code><code class="n">temp </code><code class="sy">= </code><code class="no">0</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* set the style */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_COMMENTS</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_COMMENTSCPP<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* desc : handles cpp-style comments ( from // to eoln )<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_COMMENTSCPP</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* while we still have text and it's not a eoln */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">while</code><code class="sy">( *</code><code class="n">text </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">!= </code><code class="s">'\n' </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* set style */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_COMMENTS</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++; &nbsp; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_COMMENTS</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_KEYWORD<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* desc : handles keywords or jumps to ST_NORMAL state<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_KEYWORD</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* get the next word to a buffer */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">tmp </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="c">/* letter count */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">pnow </code><code class="sy">= </code><code class="n">text</code><code class="sy">; </code><code class="c">/* local pointer to text */<br/>
+&nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; /* while we still have text that is alphanumeric */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">while</code><code class="sy">( *</code><code class="n">pnow </code><code class="sy">&amp;&amp; <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</code><code class="n">tmp </code><code class="sy">&lt; </code><code class="no">11 </code><code class="sy">&amp;&amp;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( ( *</code><code class="n">pnow </code><code class="sy">&gt;= </code><code class="s">'A' </code><code class="sy">&amp;&amp; *</code><code class="n">pnow </code><code class="sy">&lt;= </code><code class="s">'Z' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">pnow </code><code class="sy">&gt;= </code><code class="s">'a' </code><code class="sy">&amp;&amp; *</code><code class="n">pnow </code><code class="sy">&lt;= </code><code class="s">'z' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">pnow </code><code class="sy">&gt;= </code><code class="s">'0' </code><code class="sy">&amp;&amp; *</code><code class="n">pnow </code><code class="sy">&lt;= </code><code class="s">'9' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">pnow </code><code class="sy">== </code><code class="s">'_' </code><code class="sy">) ) )<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* write the chars to temp buffer */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">kbuf</code><code class="sy">[ (</code><code class="k">int</code><code class="sy">)</code><code class="n">tmp</code><code class="sy">++ ] = *(</code><code class="n">pnow</code><code class="sy">++);<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* if word size is greater then 10, cyah */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">tmp </code><code class="sy">== </code><code class="no">11 </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_NORMAL</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* find out if the word is a keyword (binsearch) */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">kbuf</code><code class="sy">[ (</code><code class="k">int</code><code class="sy">)</code><code class="n">tmp </code><code class="sy">] = </code><code class="s">'\0'</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">lkey </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="n">rkey </code><code class="sy">= </code><code class="no">63</code><code class="sy">; </code><code class="n">temp </code><code class="sy">= -</code><code class="no">1</code><code class="sy">; </code><code class="n">pos </code><code class="sy">= -</code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* binary search */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">while</code><code class="sy">( </code><code class="n">lkey </code><code class="sy">&lt; </code><code class="n">rkey </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">pos </code><code class="sy">== ( </code><code class="n">lkey</code><code class="sy">+</code><code class="n">rkey </code><code class="sy">) / </code><code class="no">2 </code><code class="sy">) </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">pos </code><code class="sy">= ( </code><code class="n">lkey</code><code class="sy">+</code><code class="n">rkey </code><code class="sy">) / </code><code class="no">2</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">res </code><code class="sy">= </code><code class="n">strcmp</code><code class="sy">( </code><code class="n">keywords</code><code class="sy">[ </code><code class="n">pos </code><code class="sy">], </code><code class="n">kbuf </code><code class="sy">);<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">res </code><code class="sy">== </code><code class="no">0 </code><code class="sy">) <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">temp </code><code class="sy">= </code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">else if</code><code class="sy">( </code><code class="n">res </code><code class="sy">&lt; </code><code class="no">0 </code><code class="sy">) </code><code class="n">lkey </code><code class="sy">= </code><code class="n">pos</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">else </code><code class="n">rkey </code><code class="sy">= </code><code class="n">pos</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; } &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* is not a keyword? cyah */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">temp </code><code class="sy">== -</code><code class="no">1 </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_NORMAL</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* is? change it's style */ &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">for</code><code class="sy">( </code><code class="n">lkey </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="n">lkey </code><code class="sy">&lt; </code><code class="n">tmp</code><code class="sy">; </code><code class="n">lkey </code><code class="sy">++ )<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; *(</code><code class="n">style</code><code class="sy">++) = </code><code class="n">STYLE_KEYWORD</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">text </code><code class="sy">= </code><code class="n">pnow</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_KEYWORD</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_NORMAL<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* desc : handles normal alphamnumeric words<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_NORMAL</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* while is alphanumeric */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">while</code><code class="sy">( ( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'A' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'Z' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'a' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'z' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'0' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'9' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'_' </code><code class="sy">) )<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* set it's style */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_NORMAL</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_NORMAL</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_SYMBOL<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* desc : handles a non-alphanumeric symbol<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_SYMBOL</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* set it's style and exit */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_SYMBOL</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_SYMBOL</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* state: ST_NUMBER<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* desc : handles numbers<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="n">ST_NUMBER</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* while is a number <br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* (warning: no advanced check for hex vals, because that is<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* not needed, this is a syntax coloring function, not a<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;* error checker)<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">while</code><code class="sy">( ( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'A' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'F' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'a' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'f' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">text </code><code class="sy">&gt;= </code><code class="s">'0' </code><code class="sy">&amp;&amp; *</code><code class="n">text </code><code class="sy">&lt;= </code><code class="s">'9' </code><code class="sy">) ||<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;( *</code><code class="n">text </code><code class="sy">== </code><code class="s">'x' </code><code class="sy">|| *</code><code class="n">text </code><code class="sy">== </code><code class="s">'X' &nbsp;</code><code class="sy">) )<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* set it's style */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="sy">*</code><code class="n">style </code><code class="sy">= </code><code class="n">STYLE_NUMBER</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">style</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">text</code><code class="sy">++;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">old_style </code><code class="sy">= </code><code class="n">STYLE_NUMBER</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">state </code><code class="sy">= </code><code class="n">ST_SWITCH</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; }<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* cyah */<br/>
+&nbsp; </code><code class="k">return </code><code class="no">0</code><code class="sy">;<br/>
+} </code><code class="c">/* color_text( ) */<br/>
+<br/>
+/* info( )<br/>
+&nbsp;* prints info about the program<br/>
+&nbsp;*/<br/>
+</code><code class="k">void<br/>
+</code><code class="n">info</code><code class="sy">( </code><code class="k">void </code><code class="sy">)<br/>
+{<br/>
+&nbsp; </code><code class="n">printf</code><code class="sy">( </code><code class="s">"c2html v." </code><code class="n">VERSION </code><code class="s">" (" </code><code class="n">__TIME__ </code><code class="s">" " </code><code class="n">__DATE__ <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="s">") by gynvael.coldwind//vx\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; " &nbsp;Desc: converts a c/cpp file into a html document with"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; " colored syntax\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="p">#ifdef EXPERIMENTAL<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="s">" &nbsp;Usage: c2html infile [outfile] [--pre|--code] [--with-header]\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="p">#else<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="s">" &nbsp;Usage: c2html infile [outfile] [--with-header]\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="p">#endif<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="s">" &nbsp; &nbsp;infile &nbsp; &nbsp; &nbsp; &nbsp;- input file to color\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; " &nbsp; &nbsp;outfile &nbsp; &nbsp; &nbsp; - output file (default: infile.html)\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="p">#ifdef EXPERIMENTAL<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="s">" &nbsp; &nbsp;--pre &nbsp; &nbsp; &nbsp; &nbsp; - use &lt;pre&gt; tag\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; " &nbsp; &nbsp;--code &nbsp; &nbsp; &nbsp; &nbsp;- use &lt;code&gt; tag (default)\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="p">#endif<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="s">" &nbsp; &nbsp;--with-header - add html header with styles\n\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; " &nbsp;Example: c2html main.c main_c.html --with-header\n"<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </code><code class="sy">); &nbsp;<br/>
+} </code><code class="c">/* info( ) */<br/>
+<br/>
+/* load_file( )<br/>
+&nbsp;* creates the text &amp; style arrays, loads the file to text array<br/>
+&nbsp;* arguments: const char *fname - input file name<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;char **text - pointer to pointer to the text buffer<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;char **style - pointer to pointer to the style buffer<br/>
+&nbsp;* returns: 0 - success<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;1 - could not open the file<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;2 - could not allocate memory<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;3 - could not read from file<br/>
+&nbsp;*/<br/>
+</code><code class="k">int<br/>
+</code><code class="n">load_file</code><code class="sy">( </code><code class="k">const char </code><code class="sy">*</code><code class="n">fname</code><code class="sy">, </code><code class="k">char </code><code class="sy">**</code><code class="n">text</code><code class="sy">, </code><code class="k">char </code><code class="sy">**</code><code class="n">style </code><code class="sy">)<br/>
+{<br/>
+&nbsp; </code><code class="n">FILE </code><code class="sy">*</code><code class="n">f</code><code class="sy">; </code><code class="c">/* file */<br/>
+&nbsp; </code><code class="k">int </code><code class="n">size</code><code class="sy">, </code><code class="n">ret</code><code class="sy">; </code><code class="c">/* size of file and ret var */<br/>
+&nbsp; <br/>
+&nbsp; /* open file */<br/>
+&nbsp; </code><code class="n">f </code><code class="sy">= </code><code class="n">fopen</code><code class="sy">( </code><code class="n">fname</code><code class="sy">, </code><code class="s">"rb" </code><code class="sy">);<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( !</code><code class="n">f </code><code class="sy">) </code><code class="k">return </code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* get file size */<br/>
+&nbsp; </code><code class="n">fseek</code><code class="sy">( </code><code class="n">f</code><code class="sy">, </code><code class="no">0</code><code class="sy">, </code><code class="n">SEEK_END </code><code class="sy">);<br/>
+&nbsp; </code><code class="n">size </code><code class="sy">= </code><code class="n">ftell</code><code class="sy">( </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; </code><code class="n">fseek</code><code class="sy">( </code><code class="n">f</code><code class="sy">, </code><code class="no">0</code><code class="sy">, </code><code class="n">SEEK_SET </code><code class="sy">);<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* alloc mem */<br/>
+&nbsp; </code><code class="sy">*</code><code class="n">text </code><code class="sy">= (</code><code class="k">char</code><code class="sy">*) </code><code class="n">malloc</code><code class="sy">( </code><code class="n">size </code><code class="sy">+ </code><code class="no">1 </code><code class="sy">);<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( !*</code><code class="n">text </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="n">fclose</code><code class="sy">( </code><code class="n">f </code><code class="sy">); <br/>
+&nbsp; &nbsp; </code><code class="k">return </code><code class="no">2</code><code class="sy">;<br/>
+&nbsp; }<br/>
+&nbsp; *</code><code class="n">style </code><code class="sy">= (</code><code class="k">char</code><code class="sy">*) </code><code class="n">malloc</code><code class="sy">( </code><code class="n">size </code><code class="sy">+ </code><code class="no">1 </code><code class="sy">);<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( !*</code><code class="n">style </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="n">free</code><code class="sy">( *</code><code class="n">text </code><code class="sy">);<br/>
+&nbsp; &nbsp; </code><code class="n">fclose</code><code class="sy">( </code><code class="n">f </code><code class="sy">); <br/>
+&nbsp; &nbsp; </code><code class="k">return </code><code class="no">2</code><code class="sy">;<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* read from file */<br/>
+&nbsp; </code><code class="n">ret </code><code class="sy">= </code><code class="n">fread</code><code class="sy">( *</code><code class="n">text</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="n">size</code><code class="sy">, </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">ret </code><code class="sy">!= </code><code class="n">size </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="n">free</code><code class="sy">( *</code><code class="n">text </code><code class="sy">);<br/>
+&nbsp; &nbsp; </code><code class="n">free</code><code class="sy">( *</code><code class="n">style </code><code class="sy">);<br/>
+&nbsp; &nbsp; </code><code class="n">fclose</code><code class="sy">( </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; &nbsp; </code><code class="k">return </code><code class="no">3</code><code class="sy">;<br/>
+&nbsp; }<br/>
+&nbsp; (*</code><code class="n">text</code><code class="sy">)[ </code><code class="n">size </code><code class="sy">] = </code><code class="s">'\0'</code><code class="sy">;<br/>
+&nbsp; &nbsp; <br/>
+&nbsp; </code><code class="n">fclose</code><code class="sy">( </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; </code><code class="k">return </code><code class="no">0</code><code class="sy">; &nbsp;<br/>
+} </code><code class="c">/* load_file( ) */<br/>
+<br/>
+/* write_file( )<br/>
+&nbsp;* writes the output html file, destroys text and style array<br/>
+&nbsp;* arguments: const char *fname - output file name<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;char **text - pointer to pointer to the text buffer<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;char **style - pointer to pointer to the style buffer<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;int head - 1 - write html header and footer<br/>
+&nbsp;* returns: 0 - success<br/>
+&nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;1 - error<br/>
+&nbsp;*/<br/>
+</code><code class="k">int<br/>
+</code><code class="n">write_file</code><code class="sy">( </code><code class="k">const char </code><code class="sy">*</code><code class="n">fname</code><code class="sy">, </code><code class="k">char </code><code class="sy">**</code><code class="n">text</code><code class="sy">, </code><code class="k">char </code><code class="sy">**</code><code class="n">style</code><code class="sy">, </code><code class="k">int </code><code class="n">head </code><code class="sy">)<br/>
+{<br/>
+&nbsp; </code><code class="n">FILE </code><code class="sy">*</code><code class="n">f</code><code class="sy">; </code><code class="c">/* file */<br/>
+&nbsp; </code><code class="k">char </code><code class="sy">*</code><code class="n">atext </code><code class="sy">= *</code><code class="n">text</code><code class="sy">; </code><code class="c">/* text pointer */<br/>
+&nbsp; </code><code class="k">char </code><code class="sy">*</code><code class="n">astyle </code><code class="sy">= *</code><code class="n">style</code><code class="sy">; </code><code class="c">/* style pointer */<br/>
+&nbsp; </code><code class="k">char </code><code class="sy">*</code><code class="n">t </code><code class="sy">= </code><code class="n">atext</code><code class="sy">, *</code><code class="n">s </code><code class="sy">= </code><code class="n">astyle</code><code class="sy">; </code><code class="c">/* pointers */<br/>
+&nbsp; </code><code class="k">int </code><code class="n">current_style</code><code class="sy">, </code><code class="n">soft_space </code><code class="sy">= </code><code class="no">1</code><code class="sy">; </code><code class="c">/* current style and space flag */<br/>
+&nbsp; <br/>
+&nbsp; /* open the output file */<br/>
+&nbsp; </code><code class="n">f </code><code class="sy">= </code><code class="n">fopen</code><code class="sy">( </code><code class="n">fname</code><code class="sy">, </code><code class="s">"wb" </code><code class="sy">);<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( !</code><code class="n">f </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="k">return </code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* write header */<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">head </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="n">html_header</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="k">sizeof</code><code class="sy">( </code><code class="n">html_header </code><code class="sy">) - </code><code class="no">1</code><code class="sy">, </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* write the data while there is still some text */<br/>
+&nbsp; </code><code class="n">current_style </code><code class="sy">= -</code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; </code><code class="n">while</code><code class="sy">( *</code><code class="n">t </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="c">/* if new style comes */<br/>
+&nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( *</code><code class="n">s </code><code class="sy">!= </code><code class="n">current_style </code><code class="sy">)<br/>
+&nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* and it's not the "start" style */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">current_style </code><code class="sy">!= -</code><code class="no">1 </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="c">/* write the end tag */<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="n">tags</code><code class="sy">[ </code><code class="n">STYLE_END </code><code class="sy">].</code><code class="n">tag</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="n">tags</code><code class="sy">[ </code><code class="n">STYLE_END </code><code class="sy">].</code><code class="n">size</code><code class="sy">, </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* write the new style tag */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="n">tags</code><code class="sy">[ (</code><code class="k">int</code><code class="sy">)*</code><code class="n">s </code><code class="sy">].</code><code class="n">tag</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="n">tags</code><code class="sy">[ (</code><code class="k">int</code><code class="sy">)*</code><code class="n">s </code><code class="sy">].</code><code class="n">size</code><code class="sy">, </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">current_style </code><code class="sy">= *</code><code class="n">s</code><code class="sy">;<br/>
+&nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; <br/>
+&nbsp; &nbsp; </code><code class="c">/* check for specials */<br/>
+&nbsp; &nbsp; </code><code class="k">switch</code><code class="sy">( *</code><code class="n">t </code><code class="sy">)<br/>
+&nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* ignore \r */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="s">'\r'</code><code class="sy">: </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* handle \n */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="p">#ifndef LINUX<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="s">'\n'</code><code class="sy">:<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">tags </code><code class="sy">!= </code><code class="n">pre_tags </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">soft_space </code><code class="sy">= </code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"&lt;br/&gt;\r\n"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">7</code><code class="sy">, </code><code class="n">f </code><code class="sy">); <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"\r\n"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">2</code><code class="sy">, </code><code class="n">f </code><code class="sy">); </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="p">#else<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="s">'\n'</code><code class="sy">: <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">tags </code><code class="sy">!= </code><code class="n">pre_tags </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">soft_space </code><code class="sy">= </code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"&lt;br/&gt;\n"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">6</code><code class="sy">, </code><code class="n">f </code><code class="sy">); <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"\n"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="n">f </code><code class="sy">); </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="p">#endif<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* switch &lt; &gt; and &amp; for html entieties */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="s">'&lt;'</code><code class="sy">: </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"&amp;lt;"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">4</code><code class="sy">, </code><code class="n">f </code><code class="sy">); </code><code class="n">soft_space </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="s">'&gt;'</code><code class="sy">: </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"&amp;gt;"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">4</code><code class="sy">, </code><code class="n">f </code><code class="sy">); </code><code class="n">soft_space </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="s">'&amp;'</code><code class="sy">: </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"&amp;amp;"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">5</code><code class="sy">, </code><code class="n">f </code><code class="sy">); </code><code class="n">soft_space </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* handle space */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="s">' '</code><code class="sy">: <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">tags </code><code class="sy">!= </code><code class="n">pre_tags </code><code class="sy">&amp;&amp; </code><code class="n">soft_space </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; { <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"&amp;nbsp;"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">6</code><code class="sy">, </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">else<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="sy">{<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">" "</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="n">f </code><code class="sy">); <br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">soft_space </code><code class="sy">= !</code><code class="n">soft_space</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* hansle tab */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="s">'\t'</code><code class="sy">: <br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">tags </code><code class="sy">!= </code><code class="n">pre_tags </code><code class="sy">)<br/>
+&nbsp; &nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">"&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; "</code><code class="sy">,<br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</code><code class="no">1</code><code class="sy">, </code><code class="no">28</code><code class="sy">, </code><code class="n">f </code><code class="sy">); </code><code class="n">soft_space </code><code class="sy">= </code><code class="no">1</code><code class="sy">; <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="s">" &nbsp; &nbsp; &nbsp; &nbsp;"</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">8</code><code class="sy">, </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">break</code><code class="sy">; &nbsp; &nbsp; &nbsp; <br/>
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="c">/* write any other char */<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">default</code><code class="sy">: </code><code class="n">fwrite</code><code class="sy">( </code><code class="n">t</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="n">f </code><code class="sy">); </code><code class="n">soft_space </code><code class="sy">= </code><code class="no">0</code><code class="sy">;<br/>
+&nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; <br/>
+&nbsp; &nbsp; </code><code class="c">/* next */<br/>
+&nbsp; &nbsp; </code><code class="n">t</code><code class="sy">++; </code><code class="n">s</code><code class="sy">++;<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* write the end tag */<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">current_style </code><code class="sy">!= -</code><code class="no">1 </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="n">tags</code><code class="sy">[ </code><code class="n">STYLE_END </code><code class="sy">].</code><code class="n">tag</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="n">tags</code><code class="sy">[ </code><code class="n">STYLE_END </code><code class="sy">].</code><code class="n">size</code><code class="sy">, </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* write footer */<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">head </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="n">fwrite</code><code class="sy">( </code><code class="n">html_footer</code><code class="sy">, </code><code class="no">1</code><code class="sy">, </code><code class="k">sizeof</code><code class="sy">( </code><code class="n">html_footer </code><code class="sy">) - </code><code class="no">1</code><code class="sy">, </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* close and free */<br/>
+&nbsp; </code><code class="n">fclose</code><code class="sy">( </code><code class="n">f </code><code class="sy">);<br/>
+&nbsp; </code><code class="n">free</code><code class="sy">( </code><code class="n">atext </code><code class="sy">);<br/>
+&nbsp; </code><code class="n">free</code><code class="sy">( </code><code class="n">astyle </code><code class="sy">);<br/>
+&nbsp; </code><code class="n">text </code><code class="sy">= </code><code class="n">NULL</code><code class="sy">;<br/>
+&nbsp; </code><code class="n">style </code><code class="sy">= </code><code class="n">NULL</code><code class="sy">;<br/>
+&nbsp; </code><code class="k">return </code><code class="no">0</code><code class="sy">; &nbsp;<br/>
+} </code><code class="c">/* write_file( ) */<br/>
+<br/>
+/* main( ) */<br/>
+</code><code class="k">int<br/>
+</code><code class="n">main</code><code class="sy">( </code><code class="k">int </code><code class="n">argc</code><code class="sy">, </code><code class="k">char </code><code class="sy">**</code><code class="n">argv </code><code class="sy">)<br/>
+{<br/>
+&nbsp; </code><code class="k">char </code><code class="n">infile_name</code><code class="sy">[ </code><code class="n">MAXPATH </code><code class="sy">], </code><code class="n">outfile_name</code><code class="sy">[ </code><code class="n">MAXPATH </code><code class="sy">];<br/>
+&nbsp; </code><code class="k">char </code><code class="sy">*</code><code class="n">arr_text </code><code class="sy">= </code><code class="n">NULL</code><code class="sy">, &nbsp;</code><code class="c">/* text array &nbsp;*/<br/>
+&nbsp; &nbsp; &nbsp; &nbsp;</code><code class="sy">*</code><code class="n">arr_style </code><code class="sy">= </code><code class="n">NULL</code><code class="sy">; </code><code class="c">/* style array */<br/>
+&nbsp; </code><code class="k">int </code><code class="n">ret</code><code class="sy">, </code><code class="n">head </code><code class="sy">= </code><code class="no">0</code><code class="sy">; </code><code class="c">/* ret var */<br/>
+&nbsp; <br/>
+&nbsp; /* if less then 1 arg */<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">argc </code><code class="sy">&lt; </code><code class="no">2 </code><code class="sy">) <br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="n">info</code><code class="sy">( );<br/>
+&nbsp; &nbsp; </code><code class="k">return </code><code class="no">0</code><code class="sy">;<br/>
+&nbsp; } <br/>
+&nbsp; </code><code class="c">/* if 2 or more */<br/>
+&nbsp; </code><code class="k">else<br/>
+&nbsp; </code><code class="sy">{<br/>
+&nbsp; &nbsp; </code><code class="n">strncpy</code><code class="sy">( </code><code class="n">infile_name</code><code class="sy">, </code><code class="n">argv</code><code class="sy">[ </code><code class="no">1 </code><code class="sy">], </code><code class="n">MAXPATH </code><code class="sy">);<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* if 3 or more */<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">argc </code><code class="sy">&gt;= </code><code class="no">3 </code><code class="sy">) <br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="n">strncpy</code><code class="sy">( </code><code class="n">outfile_name</code><code class="sy">, </code><code class="n">argv</code><code class="sy">[ </code><code class="no">2 </code><code class="sy">], </code><code class="n">MAXPATH </code><code class="sy">);<br/>
+&nbsp; } <br/>
+&nbsp; </code><code class="k">else<br/>
+&nbsp; </code><code class="sy">{<br/>
+&nbsp; &nbsp; </code><code class="n">strncpy</code><code class="sy">( </code><code class="n">outfile_name</code><code class="sy">, </code><code class="n">argv</code><code class="sy">[ </code><code class="no">1 </code><code class="sy">], </code><code class="n">MAXPATH </code><code class="sy">);<br/>
+&nbsp; &nbsp; </code><code class="n">strncat</code><code class="sy">( </code><code class="n">outfile_name</code><code class="sy">, </code><code class="s">".html"</code><code class="sy">, </code><code class="n">MAXPATH </code><code class="sy">);<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* if 4 (temp) */<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">argc </code><code class="sy">== </code><code class="no">4 </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">strcmp</code><code class="sy">( </code><code class="s">"--with-header"</code><code class="sy">, </code><code class="n">argv</code><code class="sy">[ </code><code class="no">3 </code><code class="sy">] ) == </code><code class="no">0 </code><code class="sy">)<br/>
+&nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="n">head </code><code class="sy">= </code><code class="no">1</code><code class="sy">; &nbsp; &nbsp; &nbsp;<br/>
+&nbsp; &nbsp; }<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* load file */<br/>
+&nbsp; </code><code class="n">ret </code><code class="sy">= </code><code class="n">load_file</code><code class="sy">( </code><code class="n">infile_name</code><code class="sy">, &amp;</code><code class="n">arr_text</code><code class="sy">, &amp;</code><code class="n">arr_style </code><code class="sy">);<br/>
+&nbsp; </code><code class="k">if</code><code class="sy">( </code><code class="n">ret </code><code class="sy">!= </code><code class="no">0 </code><code class="sy">)<br/>
+&nbsp; {<br/>
+&nbsp; &nbsp; </code><code class="k">switch</code><code class="sy">( </code><code class="n">ret </code><code class="sy">)<br/>
+&nbsp; &nbsp; {<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="no">1</code><code class="sy">: </code><code class="n">printf</code><code class="sy">(</code><code class="s">"Could not open file %s\n"</code><code class="sy">, </code><code class="n">infile_name</code><code class="sy">); </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="no">2</code><code class="sy">: </code><code class="n">puts</code><code class="sy">(</code><code class="s">"Could not allocate memory"</code><code class="sy">); </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">case </code><code class="no">3</code><code class="sy">: </code><code class="n">printf</code><code class="sy">(</code><code class="s">"Could not read from file %s\n"</code><code class="sy">, </code><code class="n">infile_name</code><code class="sy">); </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; &nbsp; </code><code class="k">default</code><code class="sy">: </code><code class="n">puts</code><code class="sy">(</code><code class="s">"Unknown error"</code><code class="sy">); </code><code class="k">break</code><code class="sy">;<br/>
+&nbsp; &nbsp; }<br/>
+&nbsp; &nbsp; </code><code class="k">return </code><code class="no">1</code><code class="sy">;<br/>
+&nbsp; }<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* color text */<br/>
+&nbsp; </code><code class="n">color_text</code><code class="sy">( </code><code class="n">arr_text</code><code class="sy">, </code><code class="n">arr_style </code><code class="sy">);<br/>
+&nbsp; <br/>
+&nbsp; </code><code class="c">/* write file */<br/>
+&nbsp; </code><code class="n">write_file</code><code class="sy">( </code><code class="n">outfile_name</code><code class="sy">, &amp;</code><code class="n">arr_text</code><code class="sy">, &amp;</code><code class="n">arr_style</code><code class="sy">, </code><code class="n">head </code><code class="sy">);<br/>
+&nbsp; <br/>
+&nbsp; <br/>
+&nbsp; </code><code class="k">return </code><code class="no">0</code><code class="sy">; &nbsp;<br/>
+}<br/>
+<br/>
+<br/>
+</code></BODY></HTML>
