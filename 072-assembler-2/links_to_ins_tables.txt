@@ -1,0 +1,5 @@
+https://github.com/google/EXEgesis
+
+Suggestions from the chat:
+http://ref.x86asm.net/coder64.html
+https://github.com/Barebit/x86reference
