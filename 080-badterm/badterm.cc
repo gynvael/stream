@@ -13,128 +13,67 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <SDL2/SDL.h>
+#include <signal.h>
+#include <vector>
+#include <cstdint>
+#include <memory>
+
+#include "textbuffer.h"
+#include "console.h"
+#include "context.h"
 
 int main() {
-  if (SDL_Init(SDL_INIT_VIDEO |
-               SDL_INIT_TIMER |
-               SDL_INIT_EVENTS) != 0) {
-    fprintf(stderr, "SDL_Init: error\n");
+  Context ctx;
+
+  ctx.wnd = std::make_unique<Window>(&ctx);
+  if (!ctx.wnd->InitSDL() ||
+      !ctx.wnd->Create()) {
     return 1;
   }
 
-  SDL_Window *window = SDL_CreateWindow(
-    "badterm", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-    640, 480,
-    SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-  if (window == nullptr) {
-    fprintf(stderr, "SDL_CreateWindow: error\n");
-    return 1;
-  }
+  // TODO: Move this to a function called "add new console"
+  ctx.consoles.emplace_back(
+    std::make_unique<Console>()
+  );
 
-  SDL_Surface *surface = SDL_GetWindowSurface(window);
-  if (surface == nullptr) {
-    fprintf(stderr, "SDL_GetWindowSurface: error\n");
-    return 1;
-  }
+  ctx.wnd->ResizeConsoles();
 
-  int master = getpt();
-  if (master == -1) {
-    perror("getpt");
-    return 1;
-  }
-
-  char slave_path[256]{};
-  if (ptsname_r(master, slave_path, sizeof(slave_path)) != 0) {
-    perror("ptsname_r");
-    close(master);
+  if (!ctx.consoles[0]->SpawnChild()) {
     return 2;
   }
+  // TODO: ---
 
-  if (grantpt(master) != 0) {
-    perror("grantpt");
-    close(master);
-    return 3;
-  }
-
-  if (unlockpt(master) != 0) {
-    perror("unlockpt");
-    close(master);
-    return 4;
-  }
-
-  int slave = open(slave_path, O_RDWR);
-  if (slave < 0) {
-    perror("open");
-    close(master);
-    return 3;
-  }
-
-  pid_t pid = fork();
-  if (pid == -1) {
-    perror("fork");
-    close(master);
-    close(slave);
-    return 5;
-  }
-
-  if (pid == 0) {
-    // Child process.
-    close(0);  // stdin
-    close(1);  // stdout
-    close(2);  // stderr
-    close(master);
-
-    dup2(slave, 0);
-    dup2(slave, 1);
-    dup2(slave, 2);
-
-    close(slave);
-
-    if (execl("/bin/bash", "/bin/bash", nullptr) == -1) {
-      abort();
-    }
-  }
-
-  // Parent process.
-  close(slave);
-
-  while (true) {
-    int status;
-    if (waitpid(pid, &status, WNOHANG) == 0) {
-      break;
-    }
-
-    SDL_PumpEvents();
-    SDL_Event ev;
-    while (SDL_PeepEvents(
-      &ev, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT) > 0) {
-      if (ev.type == SDL_QUIT) {
+  bool end = false;
+  while (!end) {
+    for (auto& console : ctx.consoles) {
+      int status;
+      if (waitpid(console->GetPid(), &status, WNOHANG) != 0) {
+        console->ResetPid();
+        end = true;
         break;
       }
+    }
 
-      if (ev.type == SDL_WINDOWEVENT) {
-        if (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-          surface = SDL_GetWindowSurface(window);
-          if (surface == nullptr) {
-            fprintf(stderr, "SDL_GetWindowSurface: error\n");
-            break;
-          }
-          continue;
-        }
-
-        if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
-          SDL_Event quit_ev;
-          quit_ev.type = SDL_QUIT;
-          SDL_PushEvent(&quit_ev);
-          continue;
-        }
-      }
+    if (!ctx.wnd->HandleEvents()) {
+      end = true;
+      break;
     }
   }
 
-  SDL_DestroyWindow(window);
-  SDL_Quit();
+  ctx.wnd->Destroy();
+  ctx.wnd->QuitSDL();
 
-  puts("Good bye.");
+  for (auto& console : ctx.consoles) {
+    // This should force the child to exit.
+    console->CloseMaster();
+  }
+
+  // Keep this as a separate loop.
+  for (auto& console : ctx.consoles) {
+    if (console->GetPid() != -1) {
+      // Wait for the child.
+      waitpid(console->GetPid(), nullptr, 0);
+    }
+  }
 }
 
