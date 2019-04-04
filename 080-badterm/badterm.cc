@@ -7,13 +7,15 @@
 #include <cstring>
 #include <string>
 #include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/wait.h>
+#ifdef __unix__
+#  include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
+#  include <fcntl.h>
+#  include <sys/wait.h>
+#  include <signal.h>
+#endif
 #include <SDL2/SDL.h>
-#include <signal.h>
 #include <vector>
 #include <cstdint>
 #include <memory>
@@ -21,6 +23,10 @@
 #include "textbuffer.h"
 #include "console.h"
 #include "context.h"
+
+#ifdef _WIN32
+#  undef main
+#endif
 
 int main() {
   Context ctx;
@@ -33,7 +39,7 @@ int main() {
 
   // TODO: Move this to a function called "add new console"
   ctx.consoles.emplace_back(
-    std::make_unique<Console>()
+    std::make_unique<Console>(&ctx)
   );
 
   ctx.wnd->ResizeConsoles();
@@ -46,12 +52,14 @@ int main() {
   bool end = false;
   while (!end) {
     for (auto& console : ctx.consoles) {
+#ifdef __unix__
       int status;
       if (waitpid(console->GetPid(), &status, WNOHANG) != 0) {
         console->ResetPid();
         end = true;
         break;
       }
+#endif
     }
 
     if (!ctx.wnd->HandleEvents()) {
@@ -70,10 +78,14 @@ int main() {
 
   // Keep this as a separate loop.
   for (auto& console : ctx.consoles) {
+#ifdef __unix__
     if (console->GetPid() != -1) {
       // Wait for the child.
       waitpid(console->GetPid(), nullptr, 0);
     }
+#else
+    SDL_Delay(100);  // ms
+#endif
   }
 }
 

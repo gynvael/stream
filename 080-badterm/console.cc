@@ -1,6 +1,10 @@
-#include <poll.h>
+#ifdef __unix__
+#  include <poll.h>
+#endif
 #include <algorithm>
+#include <cstdio>
 #include "console.h"
+#include "context.h"
 
 pid_t Console::GetPid() const {
   return pid_;
@@ -24,6 +28,7 @@ void Console::ResizeTextBuffer(uint32_t w, uint32_t h) {
 }
 
 bool Console::SpawnChild() {
+#ifdef __unix__
   master_ = getpt();
   if (master_ == -1) {
     perror("getpt");
@@ -85,8 +90,8 @@ bool Console::SpawnChild() {
 
   // Parent process.
   close(slave);
+#endif
   read_th_ = std::make_unique<std::thread>(&Console::ReaderWorker, this);
-
   return true;
 }
 
@@ -101,7 +106,22 @@ void Console::ProcessOutput(uint8_t *data, size_t size) {
   UpdateSurface();
 }
 
+void Console::UpdateSurface() {
+  uint8_t *pixels = (uint8_t*)surface_->pixels;
+  pixels[(300 + 25 * surface_->pitch) * 4 + 0] = 255;
+  pixels[(300 + 25 * surface_->pitch) * 4 + 1] = 0;
+  pixels[(300 + 25 * surface_->pitch) * 4 + 2] = 0;
+
+  if (ctx_->wnd != nullptr) {
+    puts("a");
+    ctx_->wnd->RedrawWindowIfConsoleActive(this);
+  }
+
+
+}
+
 void Console::ReaderWorker() {
+#ifdef __unix__
   uint8_t buf[4096];
 
   pollfd fds[] = {
@@ -129,19 +149,27 @@ void Console::ReaderWorker() {
         perror("ReaderWorker");
       }
 
-      //fwrite(buf, 1, buf_read, stdout);
+      fwrite(buf, 1, buf_read, stdout);
       ProcessOutput(buf, (size_t)buf_read);
 
     } else {
       fprintf(stderr, "poll revents == %.x\n", revents);
     }
   }
+#else
+  SDL_Delay(3000);
+  UpdateSurface();
+
+
+#endif
 }
 
 void Console::CloseMaster() {
   end_threads_.store(true);
   read_th_->join();
+#ifdef __unix__
   close(master_);
+#endif
   master_ = -1;
 }
 

@@ -39,6 +39,9 @@ void Window::ResizeConsoles() {
 
   for (auto& console : ctx_->consoles) {
     console->ResizeTextBuffer(w, h);
+
+    // TODO(gynvael):
+    console->HandleSurfaceChange(surface_);
   }
 }
 
@@ -81,6 +84,7 @@ bool Window::HandleEvents() {
           return false;
         }
         ResizeConsoles();
+        //SDL_UpdateWindowSurface(window_);
         continue;
       }
 
@@ -90,9 +94,26 @@ bool Window::HandleEvents() {
         SDL_PushEvent(&quit_ev);
         continue;
       }
+
+      if (ev.window.event == SDL_WINDOWEVENT_MOVED ||
+          ev.window.event == SDL_WINDOWEVENT_SHOWN ||
+          ev.window.event == SDL_WINDOWEVENT_EXPOSED ||
+          ev.window.event == SDL_WINDOWEVENT_RESIZED ||
+          ev.window.event == SDL_WINDOWEVENT_MAXIMIZED ||
+          ev.window.event == SDL_WINDOWEVENT_RESTORED) {
+        printf("%p\n", window_);
+        SDL_UpdateWindowSurface(window_);
+        continue;
+      }
     }
   }
 
+
   return true;
+}
+
+void Window::RedrawWindowIfConsoleActive(Console */*console*/) {
+  // TODO: check if this console is actually active
+  SDL_UpdateWindowSurface(window_);
 }
 

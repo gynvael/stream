@@ -8,13 +8,15 @@
 #include <cstring>
 #include <string>
 #include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/wait.h>
+#ifdef __unix__
+#  include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
+#  include <fcntl.h>
+#  include <sys/wait.h>
+#  include <signal.h>
+#endif
 #include <SDL2/SDL.h>
-#include <signal.h>
 #include <vector>
 #include <cstdint>
 #include <memory>

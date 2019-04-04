@@ -4,13 +4,7 @@
 #include <cstring>
 #include <string>
 #include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/wait.h>
 #include <SDL2/SDL.h>
-#include <signal.h>
 #include <vector>
 #include <cstdint>
 #include <memory>
@@ -36,5 +30,7 @@ class Window {
 
   bool HandleEvents();  // If false is returned, exit.
   void ResizeConsoles();
+
+  void RedrawWindowIfConsoleActive(Console *console);
 
 };

@@ -8,18 +8,14 @@
 #include <cstring>
 #include <string>
 #include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/wait.h>
 #include <SDL2/SDL.h>
-#include <signal.h>
 #include <vector>
 #include <cstdint>
 #include <thread>
 
 #include "textbuffer.h"
+
+struct Context;
 
 class Console {
  private:
@@ -39,7 +35,11 @@ class Console {
   uint32_t lines_ = 1;  // Actual console size.
   uint32_t scrollback_lines_ = 1000;
 
+  Context* ctx_ = nullptr;  // Console is not the owner of this object.
+
  public:
+  Console(Context* ctx) : ctx_(ctx) {}
+
   pid_t GetPid() const;
   void ResetPid();
 
