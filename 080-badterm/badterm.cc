@@ -7,6 +7,10 @@
 #include <cstring>
 #include <string>
 #include <errno.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xos.h>
+#include <X11/Xatom.h>
 #ifdef __unix__
 #  include <unistd.h>
 #  include <sys/types.h>
@@ -15,7 +19,7 @@
 #  include <sys/wait.h>
 #  include <signal.h>
 #endif
-#include <SDL2/SDL.h>
+//#include <SDL2/SDL.h>
 #include <vector>
 #include <cstdint>
 #include <memory>
@@ -31,10 +35,17 @@
 int main() {
   Context ctx;
 
-  ctx.wnd = std::make_unique<Window>(&ctx);
-  if (!ctx.wnd->InitSDL() ||
+  ctx.wnd = std::make_unique<TermWindow>(&ctx);
+  if (!ctx.wnd->InitX11() ||
       !ctx.wnd->Create()) {
     return 1;
+  }
+
+  // We use kCharHeight for both width and height on purpose.
+  ctx.font_renderer = std::make_unique<FontRenderer>();
+  if (!ctx.font_renderer->Initialize(
+      Console::kCharHeight, Console::kCharHeight)) {
+    return 2;
   }
 
   // TODO: Move this to a function called "add new console"
@@ -69,7 +80,7 @@ int main() {
   }
 
   ctx.wnd->Destroy();
-  ctx.wnd->QuitSDL();
+  ctx.wnd->QuitX11();
 
   for (auto& console : ctx.consoles) {
     // This should force the child to exit.

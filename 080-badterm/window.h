@@ -4,7 +4,10 @@
 #include <cstring>
 #include <string>
 #include <errno.h>
-#include <SDL2/SDL.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xos.h>
+#include <X11/Xatom.h>
 #include <vector>
 #include <cstdint>
 #include <memory>
@@ -14,16 +17,32 @@
 
 struct Context;
 
-class Window {
-  Context *ctx_ = nullptr;
-  SDL_Window *window_ = nullptr;
-  SDL_Surface *surface_ = nullptr;
- public:
-  Window(Context *ctx) : ctx_(ctx) {}
-  ~Window();
+class TermWindow {
+  const int kDefaultWidth = 640 /*px*/;
+  const int kDefaultHeight = 480 /*px*/;
 
-  bool InitSDL();
-  void QuitSDL();
+  Context *ctx_ = nullptr;
+  Window window_{};
+  Display *display_ = nullptr;
+  int screen_ = 0;
+  Visual *visual_ = nullptr;
+  XImage *surface_ = nullptr;
+  uint32_t *frame_ = nullptr;
+
+  Atom WM_DELETE_WINDOW;
+  Atom WM_SIZE_HINTS;
+  Atom WM_NORMAL_HINTS;
+  Atom _NET_WM_ALLOWED_ACTIONS;
+  Atom _NET_WM_ACTION_CLOSE;
+  Atom _NET_WM_ACTION_MINIMIZE;
+  Atom _NET_WM_ACTION_MOVE;
+
+ public:
+  TermWindow(Context *ctx) : ctx_(ctx) {}
+  ~TermWindow();
+
+  bool InitX11();
+  void QuitX11();
 
   bool Create();
   void Destroy();

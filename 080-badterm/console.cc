@@ -3,6 +3,7 @@
 #endif
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include "console.h"
 #include "context.h"
 
@@ -14,7 +15,7 @@ void Console::ResetPid() {
   pid_ = -1;
 }
 
-void Console::HandleSurfaceChange(SDL_Surface *surface) {
+void Console::HandleSurfaceChange(XImage *surface) {
   surface_ = surface;
 }
 
@@ -95,25 +96,162 @@ bool Console::SpawnChild() {
   return true;
 }
 
-void Console::ProcessOutput(uint8_t *data, size_t size) {
-  // TODO: handle console control codes
+bool Console::ProcessStateNormal(uint8_t ch) {
+  switch (ch) {
+    case '\n': buffer_.LineFeed(); break;
+    case '\r': buffer_.CarriageReturn(); break;
+    case '\x1b'/* ESC */: ChangeState(state_t::ST_ESC); break;
 
-  // TODO: remove me this is for debug only
-  for (size_t i = 0; i < size; i++) {
-    buffer_.InsertCharacter(data[i]);
+    default:
+      buffer_.InsertCharacter(ch);
+  }
+
+  return true;
+}
+
+bool Console::ProcessStateEscape(uint8_t ch) {
+  switch (ch) {
+    case '[': ChangeState(state_t::ST_CSI); break;
+
+    default:
+      buffer_.InsertCharacter('\x1b');
+      buffer_.InsertCharacter(ch);
+  }
+  return true;
+}
+
+void Console::ProcessSGR(std::vector<uint8_t>& buffer) {
+  // Ubuntu colors (from Wikipedia)
+  // TODO: move this to use Color from textbuffer.h
+  int kANSIColors[][3] = {
+    { 1, 1, 1 },
+    { 222, 56, 43 },
+    { 57, 181, 74 },
+    { 255, 199, 6 },
+    { 0, 111, 184 },
+    { 118, 38, 113 },
+    { 44, 181, 233 },
+    { 204, 204, 204 },
+    { 128, 128, 128 },
+    { 255, 0, 0 },
+    { 0, 255, 0 },
+    { 255, 255, 0 },
+    { 0, 0, 255 },
+    { 255, 0, 255 },
+    { 0, 255, 255 },
+    { 255, 255, 255 }
+  };
+
+  buffer.push_back(0);
+
+  // TODO: don't use pointers, reeally
+  char *p = (char*)&buffer[0];
+  char *end = (char*)&buffer[buffer.size() - 1];
+
+  // TODO: move this away from here - intensity should be persistant
+  bool intensity = false;
+
+  while (p < end && p != nullptr) {
+    long value = strtol(p, &p, 10);
+    if (value == 0) {
+      intensity = false;
+    }
+
+    if (value == 1) {
+      intensity = true;
+    }
+
+    if (value >= 30 && value <= 37) {
+      int *rgb = intensity ? kANSIColors[value - 30 + 8] :
+                             kANSIColors[value - 30];
+      buffer_.ChangeForegroundColor(rgb[2], rgb[1], rgb[0]);
+    }
+
+    if (*p == ';' || *p == ':') {
+      p++;
+    }
+  }
+
+}
+
+bool Console::ProcessStateCSI(uint8_t ch) {
+  if (last_state_ != state_t::ST_CSI) {
+    csi_buffer_.clear();
+  }
+
+  // Received "\x1b[".
+  switch (ch) {
+    case 'm': ProcessSGR(csi_buffer_); break;
+
+    default:
+      csi_buffer_.push_back(ch);
+      return true;
+  }
+
+  ChangeState(state_t::ST_NORMAL);
+  return true;
+}
+
+bool Console::ProcessOutputByte(uint8_t ch) {
+  switch (state_) {
+    case state_t::ST_NORMAL: return ProcessStateNormal(ch);
+    case state_t::ST_ESC: return ProcessStateEscape(ch);
+    case state_t::ST_CSI: return ProcessStateCSI(ch);
+
+    default:
+      fprintf(stderr, "Unknown state!");
+      abort();
+  }
+}
+
+void Console::ProcessOutput(uint8_t *data, size_t size) {
+  size_t i = 0;
+  while (i < size) {
+    // ProcessOutputByte will return true if the byte was fully processed,
+    // otherwise it will return false, which means it must be further processed.
+    while (1) {
+      // Make sure that if state stays the same across ProcessOutputByte call,
+      // the last_state_ gets updated as well.
+      state_t current_state = state_;
+      bool ret = ProcessOutputByte(data[i]);
+      if (state_ == current_state) {
+        last_state_ = current_state;
+      }
+
+      if (ret) {
+        break;
+      }
+    }
+    i++;
   }
 
   UpdateSurface();
 }
 
 void Console::UpdateSurface() {
-  uint8_t *pixels = (uint8_t*)surface_->pixels;
-  pixels[(300 + 25 * surface_->pitch) * 4 + 0] = 255;
-  pixels[(300 + 25 * surface_->pitch) * 4 + 1] = 0;
-  pixels[(300 + 25 * surface_->pitch) * 4 + 2] = 0;
+  const auto chars = buffer_.GetCharacters();
+  const auto attribs = buffer_.GetAttriubutes();
+  const auto [w, h] = buffer_.GetSize();
+  const uint32_t scroll_y = buffer_.GetScrollPosition();
+
+  for (uint32_t j = scroll_y; j < h; j++) {
+    for (uint32_t i = 0; i < w; i++) {
+      const uint32_t x = i * char_width_;
+      const uint32_t y = j * char_height_;
+      const uint32_t ch = chars[i + j * w];
+      const auto attrib = attribs[i + j * w];
+
+      if (ch == 0 || ch == ' ') {
+        continue;
+      } // TODO: maybe clear cell
+
+      ctx_->font_renderer->RenderGlyph(
+          surface_, x, y, ch,
+          attrib.fg.r, attrib.fg.g, attrib.fg.b);
+    }
+  }
 
   if (ctx_->wnd != nullptr) {
-    puts("a");
     ctx_->wnd->RedrawWindowIfConsoleActive(this);
   }
 

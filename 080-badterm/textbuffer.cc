@@ -34,6 +34,14 @@ void TextBuffer::Resize(uint32_t w, uint32_t h) {
   cursor_x_ = std::min(cursor_x_, w_);
 }
 
+const std::vector<uint32_t>& TextBuffer::GetCharacters() const {
+  return characters_;
+}
+
+const std::vector<CharAttrib>& TextBuffer::GetAttriubutes() const {
+  return attributes_;
+}
+
 TextBuffer::TextBuffer() {
   Reset();
 }
@@ -144,5 +152,11 @@ std::pair<uint32_t, uint32_t> TextBuffer::GetCursorPosition() const {
   return std::make_pair(cursor_x_, cursor_y_);
 }
 
+uint32_t TextBuffer::GetScrollPosition() const {
+  return scroll_y_;
+}
 
+std::pair<uint32_t, uint32_t> TextBuffer::GetSize() const {
+  return std::make_pair(w_, h_);
+}
 

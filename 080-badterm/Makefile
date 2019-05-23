@@ -1,10 +1,13 @@
 all:
-	g++ -Wall -Wextra -o badterm \
+	g++ -std=c++17 -Wall -Wextra -o badterm \
+	    `pkg-config freetype2 --cflags` \
 			badterm.cc \
 			textbuffer.cc \
 			console.cc \
 			window.cc \
-			-lSDL2 -lpthread
+			fontrenderer.cc \
+			-lX11 -lpthread \
+			`pkg-config freetype2 --libs`
 
 test: all
 	./badterm

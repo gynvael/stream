@@ -24,10 +24,12 @@
 #include "textbuffer.h"
 #include "console.h"
 #include "window.h"
+#include "fontrenderer.h"
 
 struct Context {
   std::vector<std::unique_ptr<Console>> consoles;
-  std::unique_ptr<Window> wnd;
+  std::unique_ptr<TermWindow> wnd;
+  std::unique_ptr<FontRenderer> font_renderer;
 };
 
 

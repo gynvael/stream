@@ -59,6 +59,8 @@ class TextBuffer {
   void Reset();
 
   std::pair<uint32_t, uint32_t> GetCursorPosition() const;
+  uint32_t GetScrollPosition() const;
+  std::pair<uint32_t, uint32_t> GetSize() const;
 };
 
 
