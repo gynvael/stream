@@ -18,7 +18,7 @@ int main(void) {
   strncpy(v.buf, getenv("ASDF"), sizeof(v.buf) - 1);
   v.buf[sizeof(v.buf) - 1] = '\0';
 
-  strncat(v.buf, getenv("FRRR"), sizeof(v.buf) - 1);  
+  strncat(v.buf, getenv("FRRR"), sizeof(v.buf) - 1);  // WRONG!
 
   printf("char buf[8] = \"%s\"\n"
          "int var = 0x%.8x\n", 

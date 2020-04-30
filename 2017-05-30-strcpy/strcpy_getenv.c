@@ -15,7 +15,7 @@ int main(void) {
     int var;    
   } v = { "", 0 };
 
-  strcpy(v.buf, getenv("ASDF"));
+  strcpy(v.buf, getenv("ASDF")); // BUFFER OVERFLOW
   printf("char buf[8] = \"%s\"\n"
          "int var = 0x%.8x\n", 
          v.buf, v.var);
