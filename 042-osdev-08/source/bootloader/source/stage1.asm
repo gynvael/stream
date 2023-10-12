@@ -16,6 +16,15 @@ start:
   ;mov word [es:di], 0x4141
   ;jmp $
 
+  ;
+  ; Change VGA mode to 80x50. Terminal_backend_b8000.c now rely on this screen dimensions.
+  ;
+  mov ax, 0003h
+  int 10h ;first set mode 03h
+  xor bx, bx
+  mov ax, 1112h
+  int 10h ;load 8x8 font
+
   ; Load from floppy stage 2.
   ; DL == already set by BIOS
   ; AX -- 16 bits, AH AL -- 8 bits
